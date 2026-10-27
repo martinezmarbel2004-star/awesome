@@ -385,24 +385,25 @@ html,body{margin:0}
 (function(){
 const $=s=>document.querySelector(s);
 const S={reg:null,xp:0,done:{},badges:[],exam:null};
-/* ===== CONFIGURACIÓN DE ENVÍO (FormSubmit.co) =====
-   Cambia el correo aquí si quieres recibir los registros en otra cuenta.
-   Después de activar, puedes reemplazarlo por el código alias que te envía FormSubmit. */
+/* ===== CONFIGURACIÓN DE ENVÍO =====
+   1) Web3Forms (principal): pega tu Access Key entre las comillas.
+      Se obtiene gratis en https://web3forms.com con el correo marbel.martinez@letsmovil.com.
+   2) FormSubmit (respaldo): se usa solo si WEB3FORMS_KEY está vacía. */
+const WEB3FORMS_KEY='';
 const CORREO_REGISTROS='marbel.martinez@letsmovil.com';
-const FORMSUBMIT_URL='https://formsubmit.co/ajax/'+CORREO_REGISTROS;
 const PEND='lm_registros_pendientes';
+function camposRegistro(rec){return{
+  'Nombre':rec.nombre,'Cédula':rec.cedula,'Cargo o área':rec.cargo,'Fecha de capacitación':rec.fecha,
+  'Puntaje':rec.puntaje+' de 10','Resultado':rec.aprobado?'Aprobado':'No aprobado','XP':rec.xp,
+  'Insignias':(rec.insignias||[]).join(', '),'Registrado':new Date(rec.registrado).toLocaleString('es-CO')}}
 async function enviarRegistro(rec){
-  const body={
-    _subject:'Capacitación emergencias · '+rec.nombre+' · '+(rec.aprobado?'APROBADO':'NO APROBADO'),
-    _template:'table',_captcha:'false',
-    'Nombre':rec.nombre,'Cédula':rec.cedula,'Cargo o área':rec.cargo,'Fecha de capacitación':rec.fecha,
-    'Puntaje':rec.puntaje+' de 10','Resultado':rec.aprobado?'Aprobado':'No aprobado','XP':rec.xp,
-    'Insignias':(rec.insignias||[]).join(', '),'Registrado':new Date(rec.registrado).toLocaleString('es-CO')
-  };
-  const r=await fetch(FORMSUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw new Error('http '+r.status);
+  const asunto='Capacitación emergencias · '+rec.nombre+' · '+(rec.aprobado?'APROBADO':'NO APROBADO');
+  let url,body;
+  if(WEB3FORMS_KEY){url='https://api.web3forms.com/submit';body=Object.assign({access_key:WEB3FORMS_KEY,subject:asunto,from_name:"Misión Primer Respondiente · Let's Móvil",botcheck:''},camposRegistro(rec))}
+  else{url='https://formsubmit.co/ajax/'+CORREO_REGISTROS;body=Object.assign({_subject:asunto,_template:'table',_captcha:'false'},camposRegistro(rec))}
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({}));
-  if(j&&(j.success===false||j.success==='false'))throw new Error(j.message||'rechazado');
+  if(!r.ok||j.success===false||j.success==='false')throw new Error((j&&j.message)||('http '+r.status));
   return true;
 }
 function readPend(){try{return JSON.parse(localStorage.getItem(PEND)||'[]')}catch(e){return []}}
